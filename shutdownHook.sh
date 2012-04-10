@@ -1,18 +1,55 @@
+
 #!/bin/bash
 ####################################
 #
-# This hook runs at shutdown
+# Nightly project commit
+# Recursively loop through directory and commit any project changes
+# To enable desktop notifications, not really needed, but they're fucking cool
+# $ sudo apt-get install libnotify-bin
+# TODO: Add ability to pass in project directory in via cron task
 ####################################
+# display user's ID
+# echo $(id -u)
 
-echo "Shutdown script initiated" >> /home/allibubba/Tasks/Shutdown-Test/task.log;
+# check if your keys can be found, run this in CL and comare output to command in this script
+#ssh -vT git@github.com
 
-echo "Are you sure you want to shut down? (y/n)";
-read answer;
-case $answer in
-  "y") echo "Shutting down..."; notify-send "shutting down";;
-  "n") echo "Canceling Shutdown"; notify-send "canceling shutdown";;
-  *) echo "Please enter y or n";;
-esac
 
-sleep 3
-exit 0
+SCRIPT=`readlink -f $0`
+SCRIPTPATH=`dirname $SCRIPT`
+HOME=/home/allibubba
+SSH_AUTH_SOCK=/tmp/keyring-FFC4KQ/ssh
+PROJECTPATH=$HOME/Projects
+PROJECTS=( $(find $PROJECTPATH -maxdepth 1 -type d -printf '%P\n') )
+
+# if [ "$(id -u)" == "1000" ]; 
+#   then
+#     echo "ok"
+# fi
+
+
+runCommit () {
+  cd /home/allibubba/Projects/$1
+  git add -A
+  git commit -m"restart commit: "$1
+  git push
+  sleep 3
+  echo "pushed: "$1 >> $SCRIPTPATH/access.log
+  # notify-send $1
+}
+
+for proj in ${PROJECTS[@]}
+do
+  DIR=$PROJECTPATH/$proj
+  cd $PROJECTPATH/$proj
+  if [ -d $PROJECTPATH/$proj/.git ] && [[ $(git status 2> /dev/null | tail -n1) != "nothing to commit (working directory clean)" ]]
+    then
+      runCommit $proj
+  fi
+done
+
+echo "Finished running projectPush at `date`" >> $SCRIPTPATH/access.log
+
+sleep 2
+
+cd /etc/init.d
